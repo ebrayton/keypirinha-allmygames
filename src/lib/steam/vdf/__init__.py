@@ -1,11 +1,11 @@
 """
 Module for deserializing/serializing to and from VDF
 
-This has been copied and slightly modified from
-https://github.com/ValvePython/vdf and
-https://github.com/ValvePython/steam
+This has been copied and modified only so they work together in this file from
+https://github.com/ValvePython/vdf/vdf/__init__.py and
+https://github.com/ValvePython/steam/steam/utils/appcache.py
 """
-__version__ = "3.3"
+__version__ = "3.4"
 __author__ = "Rossen Georgiev"
 
 import re
@@ -73,11 +73,9 @@ def parse(fp, mapper=dict, merge_duplicate_keys=True, escaped=True):
     """
     Deserialize ``s`` (a ``str`` or ``unicode`` instance containing a VDF)
     to a Python object.
-
     ``mapper`` specifies the Python object used after deserializetion. ``dict` is
     used by default. Alternatively, ``collections.OrderedDict`` can be used if you
     wish to preserve key order. Or any object that acts like a ``dict``.
-
     ``merge_duplicate_keys`` when ``True`` will merge multiple KeyValue lists with the
     same key into one instead of overwriting. You can se this to ``False`` if you are
     using ``VDFDict`` and need to preserve the duplicates.
@@ -90,10 +88,11 @@ def parse(fp, mapper=dict, merge_duplicate_keys=True, escaped=True):
     stack = [mapper()]
     expect_bracket = False
 
-    re_keyvalue = re.compile(r'^("(?P<qkey>(?:\\.|[^\\"])+)"|(?P<key>#?[a-z0-9\-\_\\\?]+))'
+    re_keyvalue = re.compile(r'^("(?P<qkey>(?:\\.|[^\\"])*)"|(?P<key>#?[a-z0-9\-\_\\\?$%<>]+))'
                              r'([ \t]*('
                              r'"(?P<qval>(?:\\.|[^\\"])*)(?P<vq_end>")?'
-                             r'|(?P<val>[a-z0-9\-\_\\\?\*\.]+)'
+                             r'|(?P<val>(?:(?<!/)/(?!/)|[a-z0-9\-\_\\\?\*\.$<> ])+)'
+                             r'|(?P<sblock>{[ \t]*)(?P<eblock>})?'
                              r'))?',
                              flags=re.I)
 
@@ -138,7 +137,13 @@ def parse(fp, mapper=dict, merge_duplicate_keys=True, escaped=True):
                                       (getattr(fp, 'name', '<%s>' % fp.__class__.__name__), lineno, 0, line))
 
             key = match.group('key') if match.group('qkey') is None else match.group('qkey')
-            val = match.group('val') if match.group('qval') is None else match.group('qval')
+            val = match.group('qval')
+            if val is None:
+                val = match.group('val')
+                if val is not None:
+                    val = val.rstrip()
+                    if val == "":
+                        val = None
 
             if escaped:
                 key = _unescape(key)
@@ -147,12 +152,18 @@ def parse(fp, mapper=dict, merge_duplicate_keys=True, escaped=True):
             if val is None:
                 if merge_duplicate_keys and key in stack[-1]:
                     _m = stack[-1][key]
+                    # we've descended a level deeper, if value is str, we have to overwrite it to mapper
+                    if not isinstance(_m, mapper):
+                        _m = stack[-1][key] = mapper()
                 else:
                     _m = mapper()
                     stack[-1][key] = _m
 
-                stack.append(_m)
-                expect_bracket = True
+                if match.group('eblock') is None:
+                    # only expect a bracket if it's not already closed or on the same line
+                    stack.append(_m)
+                    if match.group('sblock') is None:
+                        expect_bracket = True
 
             # we've matched a simple keyvalue pair, map it to the last dict obj in the stack
             else:
@@ -290,11 +301,9 @@ def binary_loads(b, mapper=dict, merge_duplicate_keys=True, alt_format=False, ra
     """
     Deserialize ``b`` (``bytes`` containing a VDF in "binary form")
     to a Python object.
-
     ``mapper`` specifies the Python object used after deserializetion. ``dict` is
     used by default. Alternatively, ``collections.OrderedDict`` can be used if you
     wish to preserve key order. Or any object that acts like a ``dict``.
-
     ``merge_duplicate_keys`` when ``True`` will merge multiple KeyValue lists with the
     same key into one instead of overwriting. You can se this to ``False`` if you are
     using ``VDFDict`` and need to preserve the duplicates.
@@ -308,11 +317,9 @@ def binary_load(fp, mapper=dict, merge_duplicate_keys=True, alt_format=False, ra
     """
     Deserialize ``fp`` (a ``.read()``-supporting file-like object containing
     binary VDF) to a Python object.
-
     ``mapper`` specifies the Python object used after deserializetion. ``dict` is
     used by default. Alternatively, ``collections.OrderedDict`` can be used if you
     wish to preserve key order. Or any object that acts like a ``dict``.
-
     ``merge_duplicate_keys`` when ``True`` will merge multiple KeyValue lists with the
     same key into one instead of overwriting. You can se this to ``False`` if you are
     using ``VDFDict`` and need to preserve the duplicates.
@@ -483,11 +490,9 @@ def _binary_dump_gen(obj, level=0, alt_format=False):
 def vbkv_loads(s, mapper=dict, merge_duplicate_keys=True):
     """
     Deserialize ``s`` (``bytes`` containing a VBKV to a Python object.
-
     ``mapper`` specifies the Python object used after deserializetion. ``dict` is
     used by default. Alternatively, ``collections.OrderedDict`` can be used if you
     wish to preserve key order. Or any object that acts like a ``dict``.
-
     ``merge_duplicate_keys`` when ``True`` will merge multiple KeyValue lists with the
     same key into one instead of overwriting. You can se this to ``False`` if you are
     using ``VDFDict`` and need to preserve the duplicates.
@@ -511,19 +516,20 @@ def vbkv_dumps(obj):
 
     return b'VBKV' + struct.pack('<i', checksum) + data
 
+# NOTE: following from ValvePython/steam/steam/utils/appcache.py@abf65ab
+
 uint32 = struct.Struct('<I')
 uint64 = struct.Struct('<Q')
 
 def parse_appinfo(fp):
     """Parse appinfo.vdf from the Steam appcache folder
-
     :param fp: file-like object
     :raises: SyntaxError
     :rtype: (:class:`dict`, :class:`Generator`)
     :return: (header, apps iterator)
     """
 # format:
-#   uint32   - MAGIC: "'DV\x07"
+#   uint32   - MAGIC: "'DV\x07" or "(DV\x07"
 #   uint32   - UNIVERSE: 1
 #   ---- repeated app sections ----
 #   uint32   - AppID
@@ -533,12 +539,13 @@ def parse_appinfo(fp):
 #   uint64   - accessToken
 #   20bytes  - SHA1
 #   uint32   - changeNumber
+#   20bytes  - binary_vdf SHA1 (added in "(DV\x07"
 #   variable - binary_vdf
 #   ---- end of section ---------
 #   uint32   - EOF: 0
 
     magic = fp.read(4)
-    if magic != b"'DV\x07":
+    if magic not in (b"'DV\x07", b"(DV\x07"):
         raise SyntaxError("Invalid magic, got %s" % repr(magic))
 
     universe = uint32.unpack(fp.read(4))[0]
@@ -558,8 +565,12 @@ def parse_appinfo(fp):
                 'access_token': uint64.unpack(fp.read(8))[0],
                 'sha1': fp.read(20),
                 'change_number': uint32.unpack(fp.read(4))[0],
-                'data': binary_load(fp),
             }
+
+            if magic == b"(DV\x07":
+                app['data_sha1'] = fp.read(20)
+
+            app['data'] =  binary_load(fp)
 
             yield app
 
@@ -573,7 +584,6 @@ def parse_appinfo(fp):
 
 def parse_packageinfo(fp):
     """Parse packageinfo.vdf from the Steam appcache folder
-
     :param fp: file-like object
     :raises: SyntaxError
     :rtype: (:class:`dict`, :class:`Generator`)
