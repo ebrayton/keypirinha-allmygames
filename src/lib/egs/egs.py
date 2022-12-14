@@ -29,7 +29,7 @@ class EGS:
         return list(map(self.__to_catalog, self.__games))
 
     def fetch_icon(self, item, cache_path):
-        return "@{},0".format(item["item"]["exe_path"])
+        return f'@{item["item"]["exe_path"]},0'
 
     def __to_catalog(self, item):
         return {

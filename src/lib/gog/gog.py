@@ -30,7 +30,7 @@ class GOG:
         return list(map(self.__to_catalog, self.__games))
 
     def fetch_icon(self, item, cache_path):
-        return "@{},0".format(item["item"]["exe_path"])
+        return f'@{item["item"]["exe_path"]},0'
 
     def __get_exe_path(self):
         paths_key = OpenKeyEx(HKEY_LOCAL_MACHINE, GOG.CLIENT_PATH)
@@ -40,7 +40,7 @@ class GOG:
     def __to_catalog(self, item):
         return {
             "label": item["name"],
-            "target": item["appid"] + "|" + item["game_path"],
+            "target": f'{item["appid"]}|{item["game_path"]}',
             "item": item,
         }
 

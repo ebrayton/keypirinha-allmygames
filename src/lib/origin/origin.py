@@ -27,7 +27,7 @@ class Origin:
 
     def fetch_icon(self, item, cache_path):
         # don't know how to find the exe or find an icon
-        return "@{},0".format(self.__exe_path)
+        return f'@{self.__exe_path},0'
 
     def __to_catalog(self, item):
         return {
@@ -61,7 +61,7 @@ class Origin:
                         manifest = fd.read()
                         # this is a pretty roundabout way to get rid of the leading ? but maybe a little bit more robust
                         # than simply taking a substring
-                        par_raw = parse.urlparse("http://dummy/" + manifest).query.split('&')
+                        par_raw = parse.urlparse(f'http://dummy/{manifest}').query.split('&')
 
                         parameters = dict(map(lambda i: parse.unquote(i).split("="), par_raw))
                         # there may be multiple manifests for dlcs and such, dipinstallpath is our marker for the "main"

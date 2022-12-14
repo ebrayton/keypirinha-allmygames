@@ -49,7 +49,7 @@ class WindowsStore:
             basename = os.path.basename(filepath)
 
             # find all variations of the icon (contrast, scale)
-            pattern = os.path.join(item["item"]["root_path"], relpath, "**", "{}*{}".format(basename, ext))
+            pattern = os.path.join(item["item"]["root_path"], relpath, "**", f'{basename}*{ext}')
             # out of the icons we just use the one with the shortest name, should be the "basic"
             # one without further specifiers
             logos = list(sorted(glob(pattern, recursive=True), key = lambda x: len(x)))
@@ -58,12 +58,12 @@ class WindowsStore:
 
         # if no other icon was found, try to get one from the exe
         exe_path = os.path.join(item["item"]["root_path"], item["item"]["exe_path"])
-        return "@{},0".format(exe_path)
+        return f'@{exe_path},0'
 
     def __to_catalog(self, item):
         return {
             "label": item["name"],
-            "target": "{appid}|{publisher}|{exeid}".format(appid=item["appid"], publisher=item["publisher"], exeid=item["exeid"]),
+            "target": f'{item["appid"]}|{item["publisher"]}|{item["exeid"]}',
             "item": item,
         }
 

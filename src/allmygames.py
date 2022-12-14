@@ -26,16 +26,16 @@ class RepoContext:
         self.__id = id
 
     def dbg(self, msg: str, *args):
-        return self.__plugin.dbg("[{id}] {msg}".format(id=self.__id, msg=msg), *args)
+        return self.__plugin.dbg(f'[{self.__id}] {msg}', *args)
 
     def info(self, msg: str, *args):
-        return self.__plugin.info("[{id}] {msg}".format(id=self.__id, msg=msg), *args)
+        return self.__plugin.info(f'[{self.__id}] {msg}', *args)
 
     def warn(self, msg: str, *args):
-        return self.__plugin.warn("[{id}] {msg}".format(id=self.__id, msg=msg), *args)
+        return self.__plugin.warn(f'[{self.__id}] {msg}', *args)
 
     def err(self, msg: str, *args):
-        return self.__plugin.err("[{id}] {msg}".format(id=self.__id, msg=msg), *args)
+        return self.__plugin.err(f'[{self.__id}] {msg}', *args)
 
     @property
     def plugin(self):
@@ -93,7 +93,7 @@ class AllMyGames(kp.Plugin):
                 # probably just not installed
                 self.warn("failed to initialize repo", name, e)
 
-        self.info("Games found", ["{}: {}".format(repo, len(self.__repos[repo].items)) for repo in self.__repos.keys()])
+        self.info("Games found", [f'{repo}: {len(self.__repos[repo].items)}' for repo in self.__repos.keys()])
 
         catalog = []
 
@@ -104,7 +104,7 @@ class AllMyGames(kp.Plugin):
         self.set_catalog(catalog)
 
     def on_execute(self, item, action):
-        self.dbg("execute {}".format(item.data_bag()))
+        self.dbg(f'execute {item.data_bag()}')
         repo, target = item.data_bag().split('|', 1)
         self.__repos[repo].run(kpu, target, item.raw_args())
 
@@ -112,7 +112,7 @@ class AllMyGames(kp.Plugin):
         try:
             icon_handle = self.get_icon(repo, item)
         except:
-            self.warn("Failed to read icon for {}:{}", repo, item["target"])
+            self.warn(f'Failed to read icon for {repo}:{item["target"]}')
             icon_handle = None
         valid_parameters = set(['category', 'label', 'target', 'short_desc', 'args_hint', 'hit_hint'])
         item = {k: v for k, v in item.items() if k in valid_parameters}
@@ -129,10 +129,10 @@ class AllMyGames(kp.Plugin):
 
         item = {
             **self.__item_base,
-            "short_desc": "Launch via {0}".format(repo),
+            "short_desc": f'Launch via {repo}',
             **item,
             "label": fmt.format(store=repo, name=item["label"]),
-            "data_bag": repo + "|" + item["target"],
+            "data_bag": f'{repo}|{item["target"]}',
             "icon_handle": icon_handle,
         }
         return self.create_item(**item)
@@ -140,11 +140,11 @@ class AllMyGames(kp.Plugin):
     def get_icon(self, repo: str, item: dict):
         cache_path = self.get_package_cache_path(create=True)
         target = re.sub(r"[<>:\"/\\|?*]", "_", item["target"])
-        cache_icon_path: str = os.path.join(cache_path, "{repo}_{target}".format(repo=repo, target=target))
+        cache_icon_path: str = os.path.join(cache_path, f'{repo}_{target}')
 
-        cached = glob(cache_icon_path + ".*")
+        cached = glob(f'{cache_icon_path}.*')
         if len(cached) > 0:
-            cache_icon_path =  "cache://{}/{}".format(self.package_full_name(), os.path.basename(cached[0]))
+            cache_icon_path = f'cache://{self.package_full_name()}/{os.path.basename(cached[0])}'
         else:
             # if the icon has to be downloaded or is otherwise expensive to generate, the game script
             # can use the cache_icon_path parameter as the basis for the cache file
@@ -166,9 +166,7 @@ class AllMyGames(kp.Plugin):
                 with open(updated_path, "rb") as file_in, \
                     open(cache_icon_path, "wb") as file_out:
                     file_out.write(file_in.read())
-                cache_icon_path = "cache://{}/{}".format(
-                    self.package_full_name(),
-                    os.path.basename(cache_icon_path))
+                cache_icon_path = f'cache://{self.package_full_name()}/{os.path.basename(cache_icon_path)}'
 
         self.dbg("icon cache path", cache_icon_path)
         return self.load_icon(cache_icon_path)

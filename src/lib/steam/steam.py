@@ -55,7 +55,7 @@ def to_catalog(agg: list, game, direct, store):
         # always offer the option to start through steam
         agg.append({
             "label": game["name"],
-            "target": "|" + str(game["appid"]),
+            "target": f'|{str(game["appid"])}',
             "item": game,
         })
 
@@ -67,15 +67,16 @@ def to_catalog(agg: list, game, direct, store):
                 launcher = game["launchers"][launcher_idx]
                 label = game["name"]
                 if len(launchers) > 1:
-                    label += " - " + launcher.get("description", "Default")
+                    label += f' - {launcher.get("description", "Default")}'
 
                 entry = {
                     "label": label,
-                    "target": launcher_idx + "|" + str(game["appid"]),
+                    "target": f'{launcher_idx}|{str(game["appid"])}',
                     "item": game,
                 }
                 if "executable" in launcher:
-                    entry["short_desc"] = "{} {}".format(launcher.get("executable", ""), launcher.get("arguments", ""))
+                    # If the arguements were digits (e.g. 4), this used to throw a TypeError
+                    entry["short_desc"] = f'{launcher.get("executable", "")} {launcher.get("arguments", "")}'
                 agg.append(entry)
 
     return agg
@@ -144,11 +145,11 @@ class Steam:
                 time.sleep(5)
             kpu.shell_execute(
                 full_path,
-                args="{} {}".format(launcher.get("arguments", ""), call_args),
+                args=f'{launcher.get("arguments", "")} {call_args}',
                 working_dir=launcher.get("workingdir", ""))
 
     def run_through_steam(self, kpu, appid: str, call_args: str):
-        target = "-applaunch {} {}".format(appid, call_args)
+        target = f'-applaunch {appid} {call_args}'
         self.__context.dbg(
             "starting steam game through applaunch link", target)
         kpu.shell_execute(self.__exe_path, args=target)
@@ -170,22 +171,22 @@ class Steam:
         if launcher_id != "":
             launcher = item["item"]["launchers"][launcher_id]
             if "executable" in launcher and os.path.splitext(launcher["executable"])[1] == ".exe":
-                icon_path = "@{},0".format(os.path.join(item["item"]["path"], launcher["executable"]))
+                icon_path = f'@{os.path.join(item["item"]["path"], launcher["executable"])},0'
 
         if icon_path == None and item["item"]["icon_id"] != None:
-            candidate = os.path.join(self.__install_path, "steam", "games", "{}.ico".format(item["item"]["icon_id"]))
+            candidate = os.path.join(self.__install_path, "steam", "games", f'{item["item"]["icon_id"]}.ico')
             if os.path.exists(candidate):
                 icon_path = candidate
 
         if icon_path == None:
             # _icon.jpg are only 32x32 so get very blurry and has no transparency
-            candidate = os.path.join(self.__install_path, "appcache", "librarycache", "{}_icon.jpg".format(appid))
+            candidate = os.path.join(self.__install_path, "appcache", "librarycache", f'{appid}_icon.jpg')
             if os.path.exists(candidate):
                 icon_path = candidate
 
         if icon_path == None:
             # fallback to the steam icon
-            icon_path = "@{},0".format(self.__exe_path)
+            icon_path = f'@{self.__exe_path},0'
 
         return icon_path
 
