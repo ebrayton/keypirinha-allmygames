@@ -75,7 +75,7 @@ def to_catalog(agg: list, game, direct, store):
                     "item": game,
                 }
                 if "executable" in launcher:
-                    entry["short_desc"] = launcher.get("executable", "") + " " + launcher.get("arguments", "")
+                    entry["short_desc"] = "{} {}".format(launcher.get("executable", ""), launcher.get("arguments", ""))
                 agg.append(entry)
 
     return agg
@@ -144,7 +144,7 @@ class Steam:
                 time.sleep(5)
             kpu.shell_execute(
                 full_path,
-                args=launcher.get("arguments", "") + " " + call_args,
+                args="{} {}".format(launcher.get("arguments", ""), call_args),
                 working_dir=launcher.get("workingdir", ""))
 
     def run_through_steam(self, kpu, appid: str, call_args: str):
